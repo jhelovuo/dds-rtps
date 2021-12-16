@@ -6,14 +6,9 @@
 use log::{debug,trace,error,LevelFilter};
 use log4rs::{Config, config::Appender, config::Root, append::console::ConsoleAppender};
 
-use rustdds::dds::DomainParticipant;
-use rustdds::dds::qos::QosPolicyBuilder;
-use rustdds::dds::qos::policy::{ Reliability, Durability, History, Deadline };
-use rustdds::dds::data_types::DDSDuration;
-use rustdds::dds::data_types::TopicKind;
-use rustdds::dds::traits::TopicDescription;
-use rustdds::dds::traits::Keyed;
-use rustdds::dds::statusevents::StatusEvented;
+use rustdds::*;
+use rustdds::policy::{ Reliability, Durability, History, Deadline };
+
 use serde::{Serialize, Deserialize};
 
 use clap::{App, Arg, ArgMatches}; // command line argument processing 
@@ -70,7 +65,7 @@ fn main() {
   let mut qos_b = QosPolicyBuilder::new()
   		.reliability(
 	  			if matches.is_present("reliable") {	
-	  				Reliability::Reliable { max_blocking_time: DDSDuration::DURATION_ZERO } 
+	  				Reliability::Reliable { max_blocking_time: rustdds::Duration::DURATION_ZERO } 
 					} else {
 						Reliability::BestEffort
 					}
@@ -97,7 +92,7 @@ fn main() {
       None => None,
       Some(dl) =>
         match dl.parse::<f64>() {
-          Ok(d) => Some(Deadline(DDSDuration::from_frac_seconds(d))),
+          Ok(d) => Some(Deadline(rustdds::Duration::from_frac_seconds(d))),
           Err(e) => panic!("Expected numeric value for deadline. {:?}",e),
         },
     };
@@ -149,7 +144,7 @@ fn main() {
       debug!("Publisher");
       let publisher = domain_participant.create_publisher(&qos).unwrap();
       let mut writer = publisher
-            .create_datawriter_cdr::<Shape>( topic.clone(), None) // None = get qos policy from publisher
+            .create_datawriter_cdr::<Shape>( &topic, None) // None = get qos policy from publisher
             .unwrap();
       poll.register(writer.as_status_evented(), WRITER_STATUS_READY, Ready::readable(), PollOpt::edge())
         .unwrap();
@@ -161,7 +156,7 @@ fn main() {
       debug!("Subscriber");
       let subscriber = domain_participant.create_subscriber(&qos).unwrap();
       let mut reader = subscriber
-        .create_datareader_cdr::<Shape>( topic.clone(), Some(qos) )
+        .create_datareader_cdr::<Shape>( &topic, Some(qos) )
         .unwrap();
       poll.register(&reader, READER_READY, Ready::readable(),PollOpt::edge())
         .unwrap();
